@@ -1,0 +1,40 @@
+{
+  "uuid": "aac15e6a-ea91-4059-b5eb-49824a210c07",
+  "shortName": "Phase 1",
+  "longName": "Phase 1",
+  "companyName": "Praveen Gowda I V",
+  "versionLabel": "1.0",
+  "sdkVersion": "3",
+  "targetPlatforms": ["aplite", "basalt", "chalk"],
+  "enableMultiJS": true,
+  "watchapp": {
+    "watchface": false
+  },
+  "appKeys": {
+    "dummy": 0
+  },
+  "resources": {
+    "media": [
+      {
+        "type": "bitmap",
+        "name": "TICK_BLACK",
+        "file": "images/tick_black.png"
+      },
+      {
+        "type": "bitmap",
+        "name": "TICK_WHITE",
+        "file": "images/tick_white.png"
+      },
+      {
+        "type": "bitmap",
+        "name": "TICK",
+        "file": "images/tick.png"
+      },
+      {
+        "type": "bitmap",
+        "name": "CROSS",
+        "file": "images/cross.png"
+      }
+    ]
+  }
+}
