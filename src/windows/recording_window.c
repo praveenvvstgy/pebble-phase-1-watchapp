@@ -4,29 +4,28 @@
 static Window *s_recording_window;
 static TextLayer *s_recording_indicator_layer;
 static TextLayer *s_recording_time_elapsed_layer;
-static ActionBarLayer *s_action_stop_record_layer;
 static AppTimer *s_timer;
-static GBitmap *s_cross_bitmap;
 
 static int s_minutes_elapsed;
 
 static int s_selected_event_index;
 
+typedef enum {
+  AppKeySessionStatus = 0,  // Key: 0
+  AppKeyActivityType		// Key: 1
+} AppKeys;
+
 static void record_click_handler(ClickRecognizerRef recognzier, Window *window) {
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "Stop Record Button Clicked");
 	switch (click_recognizer_get_button_id(recognzier)) {
-		case BUTTON_ID_SELECT:
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "Popping Record Screen");
-		window_stack_remove(s_recording_window,true);
 		case BUTTON_ID_BACK:
-			break;
+		APP_LOG(APP_LOG_LEVEL_DEBUG, "Popping Record Screen since Back button was clicked");
+		window_stack_remove(s_recording_window,true);
 		default:
 			break;
 	}
 }
 
 static void click_config_provider(void *context) {
-	window_single_click_subscribe(BUTTON_ID_SELECT, (ClickHandler)record_click_handler);
 	window_single_click_subscribe(BUTTON_ID_BACK, (ClickHandler)record_click_handler);
 }
 
@@ -39,18 +38,40 @@ static void update_elapsed_time(void *data) {
 	s_timer = app_timer_register(1000*60,update_elapsed_time,NULL);
 }
 
+static void inbox_received_callback(DictionaryIterator *iter, void *context) {
+  // A new message has been successfully received
+	Tuple *status_tuple = dict_find(iter, AppKeySessionStatus);
+	if (status_tuple)
+	{
+		int32_t status = status_tuple->value->int32;
+		switch (status) {
+			case 2:
+				APP_LOG(APP_LOG_LEVEL_DEBUG, "Recording Stop Command received from android");
+					stop_logger();
+					window_stack_remove(s_recording_window,true);
+				break;
+		}
+	}
+}
+
+static void inbox_dropped_callback(AppMessageResult reason, void *context) {
+  // A message was received, but had to be dropped
+  APP_LOG(APP_LOG_LEVEL_ERROR, "Message dropped. Reason: %d", (int)reason);
+}
+
+
 static void recording_window_load(Window *window) {
 	Layer *window_layer = window_get_root_layer(window);
 	GRect bounds = layer_get_bounds(window_layer);
 
-	s_recording_indicator_layer = text_layer_create(grect_inset(bounds, GEdgeInsets((bounds.size.h / 4) - 28,ACTION_BAR_WIDTH,bounds.size.h / 2,0)));
+	s_recording_indicator_layer = text_layer_create(grect_inset(bounds, GEdgeInsets((bounds.size.h / 4) - 28,0,bounds.size.h / 2,0)));
 	text_layer_set_text(s_recording_indicator_layer,"Recording...");
 	text_layer_set_font(s_recording_indicator_layer,fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
 	text_layer_set_text_alignment(s_recording_indicator_layer, GTextAlignmentCenter);
 	text_layer_set_background_color(s_recording_indicator_layer,GColorClear);
 	layer_add_child(window_layer,text_layer_get_layer(s_recording_indicator_layer));
 
-	s_recording_time_elapsed_layer = text_layer_create(grect_inset(bounds, GEdgeInsets(bounds.size.h / 2,ACTION_BAR_WIDTH,(bounds.size.h / 4) - 24,0)));
+	s_recording_time_elapsed_layer = text_layer_create(grect_inset(bounds, GEdgeInsets(bounds.size.h / 2,0,(bounds.size.h / 4) - 24,0)));
 	text_layer_set_text(s_recording_time_elapsed_layer,"Time Elapsed: 0 minute(s)");
 	text_layer_set_font(s_recording_time_elapsed_layer,fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
 	text_layer_set_text_alignment(s_recording_time_elapsed_layer, GTextAlignmentCenter);
@@ -60,12 +81,18 @@ static void recording_window_load(Window *window) {
 	s_minutes_elapsed = 0;
 	s_timer = app_timer_register(1000*60,update_elapsed_time,NULL);
 
-	s_cross_bitmap = gbitmap_create_with_resource(RESOURCE_ID_CROSS);
+	// Largest expected inbox and outbox message sizes
+	const uint32_t inbox_size = 64;
+	const uint32_t outbox_size = 64;
 
-	s_action_stop_record_layer = action_bar_layer_create();
-	action_bar_layer_set_icon(s_action_stop_record_layer,BUTTON_ID_SELECT,s_cross_bitmap);
-	action_bar_layer_set_click_config_provider(s_action_stop_record_layer,click_config_provider);
-	action_bar_layer_add_to_window(s_action_stop_record_layer,window);
+	// Open AppMessage
+	app_message_open(inbox_size, outbox_size);
+
+	// Register to be notified about inbox received events
+	app_message_register_inbox_received(inbox_received_callback);
+
+	// Register to be notified about inbox dropped events
+	app_message_register_inbox_dropped(inbox_dropped_callback);
 
 	APP_LOG(APP_LOG_LEVEL_DEBUG, "Starting Logging");
 	start_logger(s_selected_event_index);
@@ -75,8 +102,6 @@ static void recording_window_unload(Window *window) {
 	stop_logger();
 	text_layer_destroy(s_recording_indicator_layer);
 	text_layer_destroy(s_recording_time_elapsed_layer);
-	action_bar_layer_destroy(s_action_stop_record_layer);
-	gbitmap_destroy(s_cross_bitmap);
 	app_timer_cancel(s_timer);
 	window_destroy(window);
 	s_recording_window = NULL;
