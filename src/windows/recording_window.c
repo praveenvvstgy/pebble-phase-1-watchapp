@@ -10,16 +10,11 @@ static int s_minutes_elapsed;
 
 static int s_selected_event_index;
 
-typedef enum {
-  AppKeySessionStatus = 0,  // Key: 0
-  AppKeyActivityType		// Key: 1
-} AppKeys;
-
 static void record_click_handler(ClickRecognizerRef recognzier, Window *window) {
 	switch (click_recognizer_get_button_id(recognzier)) {
 		case BUTTON_ID_BACK:
-		APP_LOG(APP_LOG_LEVEL_DEBUG, "Popping Record Screen since Back button was clicked");
-		window_stack_remove(s_recording_window,true);
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "Popping Record Screen since Back button was clicked");
+			recording_window_pop();
 		default:
 			break;
 	}
@@ -37,28 +32,6 @@ static void update_elapsed_time(void *data) {
 	text_layer_set_text(s_recording_time_elapsed_layer, s_buffer);
 	s_timer = app_timer_register(1000*60,update_elapsed_time,NULL);
 }
-
-static void inbox_received_callback(DictionaryIterator *iter, void *context) {
-  // A new message has been successfully received
-	Tuple *status_tuple = dict_find(iter, AppKeySessionStatus);
-	if (status_tuple)
-	{
-		int32_t status = status_tuple->value->int32;
-		switch (status) {
-			case 2:
-				APP_LOG(APP_LOG_LEVEL_DEBUG, "Recording Stop Command received from android");
-					stop_logger();
-					window_stack_remove(s_recording_window,true);
-				break;
-		}
-	}
-}
-
-static void inbox_dropped_callback(AppMessageResult reason, void *context) {
-  // A message was received, but had to be dropped
-  APP_LOG(APP_LOG_LEVEL_ERROR, "Message dropped. Reason: %d", (int)reason);
-}
-
 
 static void recording_window_load(Window *window) {
 	Layer *window_layer = window_get_root_layer(window);
@@ -81,20 +54,6 @@ static void recording_window_load(Window *window) {
 	s_minutes_elapsed = 0;
 	s_timer = app_timer_register(1000*60,update_elapsed_time,NULL);
 
-	// Largest expected inbox and outbox message sizes
-	const uint32_t inbox_size = 64;
-	const uint32_t outbox_size = 64;
-
-	// Open AppMessage
-	app_message_open(inbox_size, outbox_size);
-
-	// Register to be notified about inbox received events
-	app_message_register_inbox_received(inbox_received_callback);
-
-	// Register to be notified about inbox dropped events
-	app_message_register_inbox_dropped(inbox_dropped_callback);
-
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "Starting Logging");
 	start_logger(s_selected_event_index);
 }
 
@@ -119,4 +78,8 @@ void recording_window_push(int index) {
 		});
 		window_stack_push(s_recording_window,true);
 	}
+}
+
+void recording_window_pop() {
+	window_stack_remove(s_recording_window,true);
 }

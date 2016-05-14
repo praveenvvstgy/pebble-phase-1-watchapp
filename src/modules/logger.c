@@ -3,11 +3,6 @@
 
 #define ACCEL_ID 1
 
-typedef enum {
-  AppKeySessionStatus = 0,  // Key: 0
-  AppKeyActivityType		// Key: 1
-} AppKeys;
-
 // The session reference variable
 static DataLoggingSessionRef logging_session;
 
@@ -49,14 +44,15 @@ static void logger_init() {
 static void logger_deinit() {
 	data_logging_finish(logging_session);
 	accel_data_service_unsubscribe();
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "Logging Session Complete");
 }
 
 void start_logger(int index) {
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "Starting Logging");
 	s_index_of_event = index;
 	logger_init();
 }
 
 void stop_logger() {
+	APP_LOG(APP_LOG_LEVEL_DEBUG, "Logging Session Complete");
 	logger_deinit();
 }
